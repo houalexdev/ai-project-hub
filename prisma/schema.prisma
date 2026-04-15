@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./data/project.db"
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String
+  email         String          @unique
+  passwordHash  String?
+  avatar        String?
+  role          String          @default("member")
+  isActive      Boolean         @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  ledProjects   Project[]       @relation("ProjectLeader")
+  memberships   ProjectMember[]
+  assignedTasks Task[]
+  attendances   MeetingAttendee[]
+  todoItems     TodoItem[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+}
+
+model Project {
+  id          String      @id @default(cuid())
+  name        String
+  description String
+  status      String      @default("active")
+  startDate   DateTime
+  endDate     DateTime
+  leaderId    String
+  isDeleted   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  leader      User        @relation("ProjectLeader", fields: [leaderId], references: [id])
+  members     ProjectMember[]
+  milestones  Milestone[]
+  tasks       Task[]
+  meetings    Meeting[]
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  joinedAt  DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+  @@unique([projectId, userId])
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  description String   @default("")
+  dueDate     DateTime
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+}
+
+model Task {
+  id               String    @id @default(cuid())
+  projectId        String
+  milestoneId      String?
+  title            String
+  description      String    @default("")
+  assigneeId       String?
+  status           String    @default("todo")
+  priority         String    @default("medium")
+  isMeetingRelated Boolean   @default(false)
+  meetingId        String?
+  dueDate          DateTime?
+  isDeleted        Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id])
+  assignee    User?      @relation(fields: [assigneeId], references: [id])
+  meeting     Meeting?   @relation("TaskMeeting", fields: [meetingId], references: [id])
+}
+
+model Meeting {
+  id          String            @id @default(cuid())
+  projectId   String
+  title       String
+  agenda      String            @default("")
+  scheduledAt DateTime?
+  duration    Int               @default(60)
+  status      String            @default("scheduled")
+  location    String            @default("")
+  notified    Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attendees   MeetingAttendee[]
+  tasks       Task[]            @relation("TaskMeeting")
+  todoItems   TodoItem[]
+}
+
+model MeetingAttendee {
+  id        String  @id @default(cuid())
+  meetingId String
+  userId    String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id])
+  @@unique([meetingId, userId])
+}
+
+model TodoItem {
+  id          String    @id @default(cuid())
+  meetingId   String
+  projectId   String
+  title       String
+  assigneeId  String?
+  dueDate     DateTime?
+  priority    String    @default("medium")
+  status      String    @default("pending")
+  aiGenerated Boolean   @default(false)
+  reviewed    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  meeting     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  assignee    User?     @relation(fields: [assigneeId], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  detail     String   @default("")
+  ip         String   @default("")
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String   @default("")
+  link      String   @default("")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
